@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 const PARIS_WEATHER_URL =
-  'https://api.open-meteo.com/v1/forecast?latitude=48.8566&longitude=2.3522&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Europe%2FParis';
+  'https://api.open-meteo.com/v1/forecast?latitude=48.8566&longitude=2.3522&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&temperature_unit=celsius&wind_speed_unit=kmh&timezone=Europe%2FParis';
 
 type OpenMeteoResponse = {
   current?: {
@@ -54,7 +54,7 @@ function weatherSummary(code: number): { condition: string; icon: LucideIcon } {
 }
 
 function formatTemperature(value: number) {
-  return `${Math.round(value)}°`;
+  return `${Math.round(value)}°C`;
 }
 
 function WeatherCardFrame({ children, busy = false }: { children: React.ReactNode; busy?: boolean }) {
@@ -75,8 +75,11 @@ function WeatherLoading() {
     <WeatherCardFrame busy>
       <div className="flex min-h-60 animate-pulse flex-col justify-between bg-secondary/50 p-7">
         <div>
-          <div className="h-3 w-20 rounded-full bg-muted" />
-          <div className="mt-4 h-10 w-28 rounded-full bg-muted" />
+          <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-muted-foreground">Météo actuelle</p>
+          <h2 id="weather-heading" className="mt-3 flex items-center gap-2 font-serif text-4xl leading-none text-primary">
+            <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
+            Paris
+          </h2>
         </div>
         <div className="h-16 w-24 rounded-full bg-muted" />
       </div>
