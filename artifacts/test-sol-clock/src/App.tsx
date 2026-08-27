@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -13,6 +13,57 @@ import {
 } from 'wouter';
 
 const queryClient = new QueryClient();
+
+function PointerFollower() {
+  const followerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const follower = followerRef.current;
+    if (!follower) return;
+
+    const finePointer = window.matchMedia('(pointer: fine)');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let animationFrame = 0;
+    let pointerX = 0;
+    let pointerY = 0;
+
+    const canAnimate = () => finePointer.matches && !reducedMotion.matches;
+    const hideFollower = () => {
+      follower.dataset.visible = 'false';
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!canAnimate() || (event.pointerType && event.pointerType !== 'mouse' && event.pointerType !== 'pen')) {
+        return;
+      }
+
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        follower.style.transform = `translate3d(${pointerX}px, ${pointerY}px, 0) translate(-50%, -50%)`;
+        follower.dataset.visible = 'true';
+        animationFrame = 0;
+      });
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    document.documentElement.addEventListener('mouseleave', hideFollower);
+    finePointer.addEventListener('change', hideFollower);
+    reducedMotion.addEventListener('change', hideFollower);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      document.documentElement.removeEventListener('mouseleave', hideFollower);
+      finePointer.removeEventListener('change', hideFollower);
+      reducedMotion.removeEventListener('change', hideFollower);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
+  }, []);
+
+  return <div ref={followerRef} className="pointer-follower" aria-hidden="true" />;
+}
 
 function Home() {
   const [now, setNow] = useState(() => new Date());
@@ -66,6 +117,7 @@ function Home() {
 
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-background text-foreground">
+      <PointerFollower />
       <div aria-hidden="true" className="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full border border-accent/15" />
       <div aria-hidden="true" className="pointer-events-none absolute -left-20 -top-20 h-56 w-56 rounded-full border border-accent/10" />
       <div aria-hidden="true" className="pointer-events-none absolute bottom-[-12rem] right-[-8rem] h-[28rem] w-[28rem] rounded-full border border-secondary/60" />
