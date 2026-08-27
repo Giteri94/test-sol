@@ -11,9 +11,7 @@ import {
   MapPin,
   Wind,
 } from 'lucide-react';
-
-const PARIS_WEATHER_URL =
-  'https://api.open-meteo.com/v1/forecast?latitude=48.8566&longitude=2.3522&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&temperature_unit=celsius&wind_speed_unit=kmh&timezone=Europe%2FParis';
+import { type CityLocation } from '@/lib/location';
 
 type OpenMeteoResponse = {
   current?: {
@@ -70,7 +68,7 @@ function WeatherCardFrame({ children, busy = false }: { children: React.ReactNod
   );
 }
 
-function WeatherLoading() {
+function WeatherLoading({ cityName }: { cityName: string }) {
   return (
     <WeatherCardFrame busy>
       <div className="flex min-h-60 animate-pulse flex-col justify-between bg-secondary/50 p-7">
@@ -78,7 +76,7 @@ function WeatherLoading() {
           <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-muted-foreground">Météo actuelle</p>
           <h2 id="weather-heading" className="mt-3 flex items-center gap-2 font-serif text-4xl leading-none text-primary">
             <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
-            Paris
+            {cityName}
           </h2>
         </div>
         <div className="h-16 w-24 rounded-full bg-muted" />
@@ -101,7 +99,7 @@ function WeatherLoading() {
   );
 }
 
-function WeatherError() {
+function WeatherError({ cityName }: { cityName: string }) {
   return (
     <WeatherCardFrame>
       <div className="flex min-h-60 flex-col justify-between bg-secondary/50 p-7">
@@ -109,7 +107,7 @@ function WeatherError() {
           <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-muted-foreground">Météo actuelle</p>
           <h2 id="weather-heading" className="mt-3 flex items-center gap-2 font-serif text-4xl text-primary">
             <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
-            Paris
+            {cityName}
           </h2>
         </div>
         <CloudSun className="h-20 w-20 text-accent/40" strokeWidth={1} aria-hidden="true" />
@@ -117,7 +115,7 @@ function WeatherError() {
       <div className="flex flex-col justify-center p-7">
         <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-accent">Donnée indisponible</p>
         <p role="alert" className="mt-3 max-w-xs font-serif text-2xl leading-tight text-primary">
-          La météo de Paris ne peut pas être chargée pour le moment.
+          La météo de {cityName} ne peut pas être chargée pour le moment.
         </p>
         <p className="mt-5 font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
           L’horloge continue de fonctionner normalement.
@@ -127,7 +125,20 @@ function WeatherError() {
   );
 }
 
-export function WeatherCard() {
+function weatherUrl(location: CityLocation) {
+  const params = new URLSearchParams({
+    latitude: String(location.latitude),
+    longitude: String(location.longitude),
+    current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m',
+    temperature_unit: 'celsius',
+    wind_speed_unit: 'kmh',
+    timezone: location.timeZone,
+  });
+
+  return `https://api.open-meteo.com/v1/forecast?${params}`;
+}
+
+export function WeatherCard({ location }: { location: CityLocation }) {
   const [state, setState] = useState<WeatherState>({ status: 'loading' });
 
   useEffect(() => {
@@ -135,7 +146,7 @@ export function WeatherCard() {
 
     const loadWeather = async () => {
       try {
-        const response = await fetch(PARIS_WEATHER_URL, { signal: controller.signal });
+        const response = await fetch(weatherUrl(location), { signal: controller.signal });
         if (!response.ok) throw new Error('Weather request failed');
 
         const payload = (await response.json()) as OpenMeteoResponse;
@@ -162,7 +173,7 @@ export function WeatherCard() {
 
         const summary = weatherSummary(weatherCode);
         const updatedAt = new Intl.DateTimeFormat('fr-FR', {
-          timeZone: 'Europe/Paris',
+          timeZone: location.timeZone,
           hour: '2-digit',
           minute: '2-digit',
         }).format(new Date());
@@ -187,10 +198,10 @@ export function WeatherCard() {
 
     void loadWeather();
     return () => controller.abort();
-  }, []);
+  }, [location]);
 
-  if (state.status === 'loading') return <WeatherLoading />;
-  if (state.status === 'error') return <WeatherError />;
+  if (state.status === 'loading') return <WeatherLoading cityName={location.name} />;
+  if (state.status === 'error') return <WeatherError cityName={location.name} />;
 
   const WeatherIcon = state.data.icon;
 
@@ -202,7 +213,7 @@ export function WeatherCard() {
           <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-muted-foreground">Météo actuelle</p>
           <h2 id="weather-heading" className="mt-3 flex items-center gap-2 font-serif text-4xl leading-none text-primary">
             <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
-            Paris
+            {location.name}
           </h2>
         </div>
         <div className="relative flex items-end justify-between gap-4">
@@ -240,7 +251,7 @@ export function WeatherCard() {
           </div>
           <div>
             <dt className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">Ville</dt>
-            <dd className="mt-2 text-lg font-medium text-primary">Paris</dd>
+            <dd className="mt-2 text-lg font-medium text-primary">{location.name}</dd>
           </div>
         </dl>
         <p className="mt-8 border-t border-border/70 pt-4 font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">

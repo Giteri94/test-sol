@@ -4,7 +4,9 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import { CityPicker } from '@/components/city-picker';
 import { WeatherCard } from '@/components/weather-card';
+import { isCityLocation, PARIS_LOCATION, type CityLocation } from '@/lib/location';
 import { Clock3, Globe2, MapPin } from 'lucide-react';
 import {
   Route,
@@ -14,6 +16,32 @@ import {
 } from 'wouter';
 
 const queryClient = new QueryClient();
+const CITY_STORAGE_KEY = 'sol-selected-city';
+
+function readSelectedCity(): CityLocation {
+  if (typeof window === 'undefined') return PARIS_LOCATION;
+
+  try {
+    const storedCity = window.sessionStorage.getItem(CITY_STORAGE_KEY);
+    if (!storedCity) return PARIS_LOCATION;
+    const parsedCity: unknown = JSON.parse(storedCity);
+    return isCityLocation(parsedCity) ? parsedCity : PARIS_LOCATION;
+  } catch {
+    return PARIS_LOCATION;
+  }
+}
+
+function utcOffsetFor(date: Date, timeZone: string) {
+  const timeZoneName = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    timeZoneName: 'longOffset',
+  })
+    .formatToParts(date)
+    .find((part) => part.type === 'timeZoneName')?.value;
+  const match = timeZoneName?.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/);
+  if (!match) return 'UTC+00:00';
+  return `UTC${match[1]}${String(Number(match[2])).padStart(2, '0')}:${match[3] ?? '00'}`;
+}
 
 function PointerFollower() {
   const followerRef = useRef<HTMLDivElement>(null);
@@ -68,6 +96,15 @@ function PointerFollower() {
 
 function Home() {
   const [now, setNow] = useState(() => new Date());
+  const [selectedCity, setSelectedCity] = useState<CityLocation>(readSelectedCity);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(CITY_STORAGE_KEY, JSON.stringify(selectedCity));
+    } catch {
+      // Session persistence is optional when storage is unavailable.
+    }
+  }, [selectedCity]);
 
   useEffect(() => {
     document.title = 'Heure locale — Sol';
@@ -96,25 +133,31 @@ function Home() {
     typeof navigator !== 'undefined' && navigator.language?.startsWith('fr')
       ? navigator.language
       : 'fr-FR';
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local time';
+  const timeZone = selectedCity.timeZone;
   const timeZoneName =
-    new Intl.DateTimeFormat(locale, { timeZoneName: 'long' })
+    new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: 'long' })
       .formatToParts(now)
       .find((part) => part.type === 'timeZoneName')?.value || timeZone;
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const timeParts = new Intl.DateTimeFormat(locale, {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now);
+  const getTimePart = (type: 'hour' | 'minute' | 'second') =>
+    timeParts.find((part) => part.type === type)?.value ?? '00';
+  const hours = getTimePart('hour');
+  const minutes = getTimePart('minute');
+  const seconds = getTimePart('second');
   const dateLabel = new Intl.DateTimeFormat(locale, {
+    timeZone,
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric',
   }).format(now);
-  const offsetMinutes = -now.getTimezoneOffset();
-  const offsetSign = offsetMinutes >= 0 ? '+' : '−';
-  const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
-  const offsetRemainder = Math.abs(offsetMinutes) % 60;
-  const utcOffset = `UTC${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetRemainder).padStart(2, '0')}`;
+  const utcOffset = utcOffsetFor(now, timeZone);
 
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-background text-foreground">
@@ -151,6 +194,8 @@ function Home() {
             Une petite pause pour regarder l'heure. Votre temps local, clair et proche.
           </p>
         </section>
+
+        <CityPicker location={selectedCity} onSelect={setSelectedCity} />
 
         <section className="sol-rise sol-rise-delay-2 clock-face mt-12 w-full max-w-4xl overflow-hidden rounded-[1.75rem] border border-card-border px-5 py-7 sm:mt-16 sm:px-12 sm:py-11" aria-labelledby="clock-heading">
           <div className="relative z-10 flex items-center justify-between gap-4 border-b border-border/70 px-1 pb-5">
@@ -202,7 +247,7 @@ function Home() {
           </div>
         </section>
 
-        <WeatherCard />
+        <WeatherCard location={selectedCity} />
 
         <div className="sol-rise sol-rise-delay-3 mt-10 flex items-center gap-4 text-center" data-testid="text-sync-note">
           <span className="h-px w-8 bg-border sm:w-14" aria-hidden="true" />
