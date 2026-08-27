@@ -1,0 +1,1 @@
+- [GitHub synchronization](github-sync.md) — issue API access and Git CLI push use separate authentication paths; divergent histories can surface as an opaque Git pane error.
