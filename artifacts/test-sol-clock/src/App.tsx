@@ -23,7 +23,7 @@ function PointerFollower() {
 
     const finePointer = window.matchMedia('(pointer: fine)');
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    let animationFrame = 0;
+    let animationFrameId = 0;
     let pointerX = 0;
     let pointerY = 0;
 
@@ -33,18 +33,18 @@ function PointerFollower() {
     };
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (!canAnimate() || (event.pointerType && event.pointerType !== 'mouse' && event.pointerType !== 'pen')) {
+      if (!canAnimate() || (event.pointerType && event.pointerType !== 'mouse')) {
         return;
       }
 
       pointerX = event.clientX;
       pointerY = event.clientY;
 
-      if (animationFrame) return;
-      animationFrame = window.requestAnimationFrame(() => {
+      if (animationFrameId) return;
+      animationFrameId = window.requestAnimationFrame(() => {
         follower.style.transform = `translate3d(${pointerX}px, ${pointerY}px, 0) translate(-50%, -50%)`;
         follower.dataset.visible = 'true';
-        animationFrame = 0;
+        animationFrameId = 0;
       });
     };
 
@@ -58,7 +58,7 @@ function PointerFollower() {
       document.documentElement.removeEventListener('mouseleave', hideFollower);
       finePointer.removeEventListener('change', hideFollower);
       reducedMotion.removeEventListener('change', hideFollower);
-      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      if (animationFrameId) window.cancelAnimationFrame(animationFrameId);
     };
   }, []);
 

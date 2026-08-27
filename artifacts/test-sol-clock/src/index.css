@@ -157,7 +157,7 @@
 
 .pointer-follower {
   position: fixed;
-  z-index: 40;
+  z-index: 0;
   top: 0;
   left: 0;
   width: 11rem;
