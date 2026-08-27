@@ -1,1 +1,2 @@
 - [GitHub synchronization](github-sync.md) — issue API access and Git CLI push use separate authentication paths; divergent histories can surface as an opaque Git pane error.
+- [Issue validation gate](issue-validation-process.md) — automated checks never close feature issues; user acceptance is required after implementation.
