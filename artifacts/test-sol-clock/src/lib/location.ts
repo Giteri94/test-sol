@@ -18,6 +18,17 @@ export const PARIS_LOCATION: CityLocation = {
   timeZone: 'Europe/Paris',
 };
 
+export function isValidTimeZone(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length === 0) return false;
+
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function isCityLocation(value: unknown): value is CityLocation {
   if (!value || typeof value !== 'object') return false;
 
@@ -29,7 +40,12 @@ export function isCityLocation(value: unknown): value is CityLocation {
     typeof location.latitude === 'number' &&
     typeof location.longitude === 'number' &&
     typeof location.timeZone === 'string' &&
+    isValidTimeZone(location.timeZone) &&
     Number.isFinite(location.latitude) &&
     Number.isFinite(location.longitude)
   );
+}
+
+export function cityLabel(location: CityLocation) {
+  return [location.name, location.admin1, location.country].filter(Boolean).join(' · ');
 }

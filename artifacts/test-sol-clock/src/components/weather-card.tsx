@@ -11,7 +11,7 @@ import {
   MapPin,
   Wind,
 } from 'lucide-react';
-import { type CityLocation } from '@/lib/location';
+import { cityLabel, type CityLocation } from '@/lib/location';
 
 type OpenMeteoResponse = {
   current?: {
@@ -24,6 +24,7 @@ type OpenMeteoResponse = {
 };
 
 type WeatherData = {
+  locationId: number;
   temperature: number;
   feelsLike: number;
   humidity: number;
@@ -35,7 +36,7 @@ type WeatherData = {
 
 type WeatherState =
   | { status: 'loading' }
-  | { status: 'error' }
+  | { status: 'error'; locationId: number }
   | { status: 'success'; data: WeatherData };
 
 function weatherSummary(code: number): { condition: string; icon: LucideIcon } {
@@ -142,6 +143,7 @@ export function WeatherCard({ location }: { location: CityLocation }) {
   const [state, setState] = useState<WeatherState>({ status: 'loading' });
 
   useEffect(() => {
+    setState({ status: 'loading' });
     const controller = new AbortController();
 
     const loadWeather = async () => {
@@ -181,6 +183,7 @@ export function WeatherCard({ location }: { location: CityLocation }) {
         setState({
           status: 'success',
           data: {
+            locationId: location.id,
             temperature,
             feelsLike,
             humidity,
@@ -192,7 +195,7 @@ export function WeatherCard({ location }: { location: CityLocation }) {
         });
       } catch (error) {
         if (controller.signal.aborted) return;
-        setState({ status: 'error' });
+        setState({ status: 'error', locationId: location.id });
       }
     };
 
@@ -200,8 +203,10 @@ export function WeatherCard({ location }: { location: CityLocation }) {
     return () => controller.abort();
   }, [location]);
 
-  if (state.status === 'loading') return <WeatherLoading cityName={location.name} />;
-  if (state.status === 'error') return <WeatherError cityName={location.name} />;
+  if (state.status === 'loading' || (state.status === 'success' && state.data.locationId !== location.id) || (state.status === 'error' && state.locationId !== location.id)) {
+    return <WeatherLoading cityName={cityLabel(location)} />;
+  }
+  if (state.status === 'error') return <WeatherError cityName={cityLabel(location)} />;
 
   const WeatherIcon = state.data.icon;
 
@@ -213,7 +218,7 @@ export function WeatherCard({ location }: { location: CityLocation }) {
           <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-muted-foreground">Météo actuelle</p>
           <h2 id="weather-heading" className="mt-3 flex items-center gap-2 font-serif text-4xl leading-none text-primary">
             <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
-            {location.name}
+            {cityLabel(location)}
           </h2>
         </div>
         <div className="relative flex items-end justify-between gap-4">
@@ -251,7 +256,7 @@ export function WeatherCard({ location }: { location: CityLocation }) {
           </div>
           <div>
             <dt className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">Ville</dt>
-            <dd className="mt-2 text-lg font-medium text-primary">{location.name}</dd>
+            <dd className="mt-2 text-lg font-medium text-primary">{cityLabel(location)}</dd>
           </div>
         </dl>
         <p className="mt-8 border-t border-border/70 pt-4 font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { LoaderCircle, MapPin, Search } from 'lucide-react';
-import { type CityLocation } from '@/lib/location';
+import { cityLabel, isCityLocation, type CityLocation } from '@/lib/location';
 
 type GeocodingResponse = {
   results?: Array<{
@@ -31,7 +31,7 @@ function toCityLocation(result: NonNullable<GeocodingResponse['results']>[number
     return null;
   }
 
-  return {
+  const city = {
     id: result.id,
     name: result.name,
     country: result.country,
@@ -40,10 +40,8 @@ function toCityLocation(result: NonNullable<GeocodingResponse['results']>[number
     longitude: result.longitude,
     timeZone: result.timezone,
   };
-}
 
-function cityLabel(city: CityLocation) {
-  return [city.name, city.admin1, city.country].filter(Boolean).join(' · ');
+  return isCityLocation(city) ? city : null;
 }
 
 export function CityPicker({ location, onSelect }: CityPickerProps) {
@@ -55,6 +53,7 @@ export function CityPicker({ location, onSelect }: CityPickerProps) {
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isOpen, setIsOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchMessage, setSearchMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (suppressSearchRef.current) {
@@ -67,12 +66,14 @@ export function CityPicker({ location, onSelect }: CityPickerProps) {
     if (trimmedQuery.length < 2) {
       setSuggestions([]);
       setIsSearching(false);
+      setSearchMessage(null);
       return;
     }
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(async () => {
       setIsSearching(true);
+      setSearchMessage(null);
       try {
         const params = new URLSearchParams({
           name: trimmedQuery,
@@ -90,9 +91,13 @@ export function CityPicker({ location, onSelect }: CityPickerProps) {
           .map(toCityLocation)
           .filter((city): city is CityLocation => city !== null);
         setSuggestions(nextSuggestions);
+        setSearchMessage(nextSuggestions.length === 0 ? 'Aucune ville trouvée. Essayez un autre nom.' : null);
         setActiveIndex(-1);
       } catch (error) {
-        if (!controller.signal.aborted) setSuggestions([]);
+        if (!controller.signal.aborted) {
+          setSuggestions([]);
+          setSearchMessage('Recherche indisponible. Vérifiez le nom de la ville.');
+        }
       } finally {
         if (!controller.signal.aborted) setIsSearching(false);
       }
@@ -130,7 +135,7 @@ export function CityPicker({ location, onSelect }: CityPickerProps) {
     }
   };
 
-  const shouldShowSuggestions = isOpen && (isSearching || suggestions.length > 0);
+  const shouldShowSuggestions = isOpen && (isSearching || suggestions.length > 0 || searchMessage !== null);
 
   return (
     <section className="mt-8 w-full max-w-4xl rounded-2xl border border-border/80 bg-card/60 p-4 shadow-sm backdrop-blur-sm sm:p-5" aria-labelledby={`${inputId}-label`}>
@@ -152,8 +157,8 @@ export function CityPicker({ location, onSelect }: CityPickerProps) {
           onKeyDown={handleKeyDown}
           role="combobox"
           aria-autocomplete="list"
-          aria-controls={listboxId}
-          aria-expanded={shouldShowSuggestions}
+          aria-controls={suggestions.length > 0 ? listboxId : undefined}
+          aria-expanded={isOpen}
           aria-activedescendant={activeIndex >= 0 ? `${listboxId}-${suggestions[activeIndex].id}` : undefined}
           placeholder="Rechercher une ville"
           className="h-12 w-full rounded-xl border border-border bg-background/80 pl-10 pr-10 text-sm text-primary outline-none transition placeholder:text-muted-foreground focus:border-accent focus:ring-2 focus:ring-accent/20"
@@ -162,30 +167,44 @@ export function CityPicker({ location, onSelect }: CityPickerProps) {
           <LoaderCircle className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-accent" aria-label="Recherche en cours" />
         )}
         {shouldShowSuggestions && (
-          <ul id={listboxId} role="listbox" className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-xl">
-            {suggestions.map((city, index) => (
-              <li
-                key={`${city.id}-${city.timeZone}`}
-                id={`${listboxId}-${city.id}`}
-                role="option"
-                aria-selected={index === activeIndex}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  selectCity(city);
-                }}
-                className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-3 text-sm transition ${
-                  index === activeIndex ? 'bg-secondary text-primary' : 'text-muted-foreground hover:bg-secondary/70 hover:text-primary'
-                }`}
-              >
-                <span className="truncate">{cityLabel(city)}</span>
-                <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">{city.timeZone}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-xl">
+            {isSearching && (
+              <p role="status" className="px-3 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                Recherche en cours…
+              </p>
+            )}
+            {!isSearching && searchMessage && (
+              <p role="alert" className="px-3 py-3 text-sm text-muted-foreground">
+                {searchMessage}
+              </p>
+            )}
+            {!isSearching && suggestions.length > 0 && (
+              <ul id={listboxId} role="listbox">
+                {suggestions.map((city, index) => (
+                  <li
+                    key={`${city.id}-${city.timeZone}`}
+                    id={`${listboxId}-${city.id}`}
+                    role="option"
+                    aria-selected={index === activeIndex}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      selectCity(city);
+                    }}
+                    className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-3 text-sm transition ${
+                      index === activeIndex ? 'bg-secondary text-primary' : 'text-muted-foreground hover:bg-secondary/70 hover:text-primary'
+                    }`}
+                  >
+                    <span className="truncate">{cityLabel(city)}</span>
+                    <span className="shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">{city.timeZone}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
       <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
-        L’heure et la météo suivent la ville sélectionnée · actuellement {location.name}
+        L’heure et la météo suivent la ville sélectionnée · actuellement {cityLabel(location)}
       </p>
     </section>
   );
