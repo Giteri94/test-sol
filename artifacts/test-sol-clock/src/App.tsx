@@ -4,6 +4,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import { WeatherCard } from '@/components/weather-card';
 import { Clock3, Globe2, MapPin } from 'lucide-react';
 import {
   Route,
@@ -200,6 +201,8 @@ function Home() {
             </div>
           </div>
         </section>
+
+        <WeatherCard />
 
         <div className="sol-rise sol-rise-delay-3 mt-10 flex items-center gap-4 text-center" data-testid="text-sync-note">
           <span className="h-px w-8 bg-border sm:w-14" aria-hidden="true" />
