@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Test Soleria Clock"
+description = "Une page web simple qui affiche l'heure locale en temps réel, avec une mise à jour chaque seconde et une interface lisible sur ordinateur comme sur mobile."
+version = "1.0.0"
+id = "artifacts/test-sol-clock"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22885
+
+[services.development]
+run = "pnpm --filter @workspace/test-sol-clock run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/test-sol-clock", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/test-sol-clock/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22885"
+BASE_PATH = "/"
